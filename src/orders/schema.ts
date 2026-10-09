@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { maxInt } from '../products/schema.js';
 
 export const orderStatuses = [
   'created',
@@ -11,7 +12,10 @@ export const orderStatusSchema = z.enum(orderStatuses);
 export const createOrderSchema = z.object({
   items: z
     .array(
-      z.object({ productId: z.uuid(), quantity: z.number().int().positive() }),
+      z.object({
+        productId: z.uuid(),
+        quantity: z.number().int().positive().max(maxInt),
+      }),
     )
     .min(1),
 });
