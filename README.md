@@ -96,7 +96,6 @@ stateDiagram-v2
 
 ### Known limitations
 
-- No row locks on stock updates: two concurrent payments for the same product can oversell. Fix: `SELECT … FOR UPDATE` inside the transaction.
 - No authentication or pagination — out of scope for this project.
 
 ---
