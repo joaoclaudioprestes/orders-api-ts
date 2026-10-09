@@ -19,6 +19,14 @@ const build = () => {
 };
 const valid = { name: 'Keyboard', price: 99.9, stock: 10 };
 
+describe('health', () => {
+  it('returns ok', async () => {
+    const res = await (await build()).inject({ url: '/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'ok' });
+  });
+});
+
 describe('product routes', () => {
   it('runs full CRUD', async () => {
     const app = await build();

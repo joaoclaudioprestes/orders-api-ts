@@ -51,6 +51,7 @@ export async function buildApp(deps: {
     transform: jsonSchemaTransform,
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
+  app.get('/health', () => ({ status: 'ok' }));
   await app.register(productRoutes(deps.products));
   await app.register(orderRoutes(deps.orders));
   return app;
