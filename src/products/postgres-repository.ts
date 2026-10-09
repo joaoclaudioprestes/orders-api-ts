@@ -10,11 +10,9 @@ export class PostgresProductRepository implements ProductRepository {
     const [row] = await this.db.insert(products).values(data).returning();
     return row!;
   }
-  async findById(id: string) {
-    const [row] = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.id, id));
+  async findById(id: string, forUpdate = false) {
+    const query = this.db.select().from(products).where(eq(products.id, id));
+    const [row] = await (forUpdate ? query.for('update') : query);
     return row ?? null;
   }
   list() {

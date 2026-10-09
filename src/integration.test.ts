@@ -178,3 +178,67 @@ describe('postgresTransactor', () => {
     expect((await productRepo.findById(product.id))!.stock).toBe(8);
   });
 });
+
+describe('concurrent transitions', () => {
+  const fire = (n: number, send: () => Promise<{ statusCode: number }>) =>
+    Promise.all(Array.from({ length: n }, send)).then((rs) =>
+      rs.map((r) => r.statusCode),
+    );
+
+  it('pay never oversells', async () => {
+    const app = await build();
+    const { id: productId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/products',
+        payload: { ...keyboard, stock: 5 },
+      })
+    ).json();
+    const ids: string[] = [];
+    for (let i = 0; i < 10; i++)
+      ids.push(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/orders',
+            payload: { items: [{ productId, quantity: 1 }] },
+          })
+        ).json().id,
+      );
+    const codes = await Promise.all(
+      ids.map(
+        async (id) =>
+          (await app.inject({ method: 'POST', url: `/orders/${id}/pay` }))
+            .statusCode,
+      ),
+    );
+    expect(codes.filter((c) => c === 200)).toHaveLength(5);
+    expect(codes.filter((c) => c === 409)).toHaveLength(5);
+    expect(
+      (await app.inject({ url: `/products/${productId}` })).json().stock,
+    ).toBe(0);
+  });
+
+  it('cancel of a paid order returns stock once', async () => {
+    const app = await build();
+    const { id: productId } = (
+      await app.inject({ method: 'POST', url: '/products', payload: keyboard })
+    ).json();
+    const { id } = (
+      await app.inject({
+        method: 'POST',
+        url: '/orders',
+        payload: { items: [{ productId, quantity: 4 }] },
+      })
+    ).json();
+    await app.inject({ method: 'POST', url: `/orders/${id}/pay` });
+    const codes = await fire(10, () =>
+      app.inject({ method: 'POST', url: `/orders/${id}/cancel` }),
+    );
+    expect(codes.filter((c) => c === 200)).toHaveLength(1);
+    expect(codes.filter((c) => c === 409)).toHaveLength(9);
+    expect(
+      (await app.inject({ url: `/products/${productId}` })).json().stock,
+    ).toBe(10);
+  });
+});

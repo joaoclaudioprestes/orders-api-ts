@@ -76,8 +76,8 @@ export class OrderService {
     return this.tx(({ orders }) => this.getIn(orders, id));
   }
 
-  private async getIn(orders: OrderRepository, id: string) {
-    const order = await orders.findById(id);
+  private async getIn(orders: OrderRepository, id: string, forUpdate = false) {
+    const order = await orders.findById(id, forUpdate);
     if (!order) throw new OrderNotFoundError(id);
     return order;
   }
@@ -107,7 +107,7 @@ export class OrderService {
     id: string,
     to: OrderStatus,
   ) {
-    const order = await this.getIn(orders, id);
+    const order = await this.getIn(orders, id, true);
     if (!transitions[order.status].includes(to))
       throw new InvalidTransitionError(order.status, to);
 
@@ -119,15 +119,18 @@ export class OrderService {
     return (await orders.updateStatus(id, to))!;
   }
 
-  // ponytail: no row locks; add SELECT ... FOR UPDATE if concurrent payments matter
+  // products locked in id order so concurrent orders cannot deadlock
   private async adjustStock(
     products: ProductRepository,
     order: Order,
     sign: 1 | -1,
   ) {
     const stocks = new Map<string, number>();
-    for (const { productId, quantity } of order.items) {
-      const product = await products.findById(productId);
+    const items = [...order.items].sort((a, b) =>
+      a.productId.localeCompare(b.productId),
+    );
+    for (const { productId, quantity } of items) {
+      const product = await products.findById(productId, true);
       if (!product) throw new ProductNotFoundError(productId);
       const stock = (stocks.get(productId) ?? product.stock) + sign * quantity;
       if (stock < 0) throw new InsufficientStockError(productId);
