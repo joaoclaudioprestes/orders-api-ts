@@ -1,5 +1,3 @@
-![orders-api-ts banner](assets/banner.png)
-
 > Orders API in TypeScript built test-first: Fastify, Zod, Drizzle and PostgreSQL, with Vitest + Testcontainers integration tests, enforced coverage, Docker and GitHub Actions CI.
 
 ![TypeScript](https://img.shields.io/badge/typescript-6.0-blue)
