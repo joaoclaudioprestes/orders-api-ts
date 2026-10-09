@@ -1,7 +1,9 @@
 import { eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { orders } from '../db/schema.js';
+import { PostgresProductRepository } from '../products/postgres-repository.js';
 import type { OrderRepository } from './repository.js';
+import type { Transactor } from './service.js';
 
 export class PostgresOrderRepository implements OrderRepository {
   constructor(private readonly db: NodePgDatabase) {}
@@ -29,3 +31,14 @@ export class PostgresOrderRepository implements OrderRepository {
     return row ?? null;
   }
 }
+
+export const postgresTransactor =
+  (db: NodePgDatabase): Transactor =>
+  (work) =>
+    db.transaction((tx) => {
+      const txDb = tx as unknown as NodePgDatabase;
+      return work({
+        orders: new PostgresOrderRepository(txDb),
+        products: new PostgresProductRepository(txDb),
+      });
+    });

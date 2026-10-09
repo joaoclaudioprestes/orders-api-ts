@@ -6,6 +6,13 @@ import type { Product } from './schema.js';
 export class InMemoryProductRepository implements ProductRepository {
   private items = new Map<string, Product>();
 
+  snapshot() {
+    return new Map(this.items);
+  }
+  restore(snapshot: Map<string, Product>) {
+    this.items = snapshot;
+  }
+
   async create(data: Omit<Product, 'id'>) {
     const product = { id: randomUUID(), ...data };
     this.items.set(product.id, product);

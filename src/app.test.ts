@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { InMemoryProductRepository } from './products/memory-repository.js';
-import { InMemoryOrderRepository } from './orders/memory-repository.js';
+import {
+  InMemoryOrderRepository,
+  inMemoryTransactor,
+} from './orders/memory-repository.js';
 import { OrderService } from './orders/service.js';
 import { ProductService } from './products/service.js';
 
@@ -9,7 +12,9 @@ const build = () => {
   const products = new InMemoryProductRepository();
   return buildApp({
     products: new ProductService(products),
-    orders: new OrderService(new InMemoryOrderRepository(), products),
+    orders: new OrderService(
+      inMemoryTransactor(new InMemoryOrderRepository(), products),
+    ),
   });
 };
 const valid = { name: 'Keyboard', price: 99.9, stock: 10 };

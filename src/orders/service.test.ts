@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryProductRepository } from '../products/memory-repository.js';
-import { InMemoryOrderRepository } from './memory-repository.js';
+import {
+  InMemoryOrderRepository,
+  inMemoryTransactor,
+} from './memory-repository.js';
 import type { OrderStatus } from './schema.js';
 import {
   InsufficientStockError,
@@ -11,12 +14,14 @@ import {
 
 describe('OrderService', () => {
   let products: InMemoryProductRepository;
+  let orders: InMemoryOrderRepository;
   let service: OrderService;
   let productId: string;
 
   beforeEach(async () => {
     products = new InMemoryProductRepository();
-    service = new OrderService(new InMemoryOrderRepository(), products);
+    orders = new InMemoryOrderRepository();
+    service = new OrderService(inMemoryTransactor(orders, products));
     productId = (
       await products.create({ name: 'Mouse', price: 10.1, stock: 5 })
     ).id;
@@ -110,5 +115,15 @@ describe('OrderService', () => {
     );
     expect((await service.get(id)).status).toBe('created');
     expect(await stock()).toBe(5);
+  });
+
+  it('rolls back stock when the status update fails', async () => {
+    const { id } = await newOrder();
+    orders.updateStatus = async () => {
+      throw new Error('db down');
+    };
+    await expect(service.pay(id)).rejects.toThrow('db down');
+    expect(await stock()).toBe(5);
+    expect((await service.get(id)).status).toBe('created');
   });
 });
