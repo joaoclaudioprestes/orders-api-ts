@@ -1,3 +1,5 @@
+# orders-api-ts
+
 > Orders API in TypeScript built test-first: Fastify, Zod, Drizzle and PostgreSQL, with Vitest + Testcontainers integration tests, enforced coverage, Docker and GitHub Actions CI.
 
 ![TypeScript](https://img.shields.io/badge/typescript-6.0-blue)
@@ -55,15 +57,47 @@ src/
 │   ├── repository.ts       # repository / transactor interface
 │   ├── postgres-repository.ts
 │   └── memory-repository.ts
+├── test/
+│   └── global-setup.ts     # starts the Postgres container
 └── *.test.ts               # app, env and Postgres integration tests
 ```
 
-Main decisions:
+### Order lifecycle
 
-- Order state machine: `created → paid → shipped`, and `cancelled` from `created` or `paid`. Invalid transitions return `409`.
-- Stock is held when an order is paid and released when a paid order is cancelled.
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> paid: pay (takes stock)
+    created --> cancelled: cancel
+    paid --> shipped: ship
+    paid --> cancelled: cancel (returns stock)
+    shipped --> [*]
+    cancelled --> [*]
+```
+
+- Any other transition returns `409 Conflict`.
+- Prices are snapshotted into the order on creation (`unitPrice`), so later product price changes do not alter existing orders.
+- Stock is taken on payment, not on creation; paying without enough stock returns `409`.
+- Each order operation runs inside a single database transaction: the status change and the stock update commit or roll back together.
+
+### Design decisions
+
 - Services depend on repository interfaces; unit tests use in-memory implementations, integration tests use real Postgres.
-- Zod schemas validate input and generate the OpenAPI docs.
+- Zod schemas are the single source of truth: they validate requests, serialize responses and generate the OpenAPI docs.
+- Domain errors are mapped to HTTP status codes in one central error handler.
+
+### Error responses
+
+| Status | When                                                     | Body                                          |
+| ------ | -------------------------------------------------------- | --------------------------------------------- |
+| `400`  | invalid body or params (Zod)                             | `{"message":"Validation error","issues":[…]}` |
+| `404`  | product or order not found                               | `{"message":"Order <id> not found"}`          |
+| `409`  | invalid status transition or insufficient stock on `pay` | `{"message":"Cannot go from paid to paid"}`   |
+
+### Known limitations
+
+- No row locks on stock updates: two concurrent payments for the same product can oversell. Fix: `SELECT … FOR UPDATE` inside the transaction.
+- No authentication or pagination — out of scope for this project.
 
 ---
 
@@ -145,7 +179,11 @@ npm ci
 - **Integration:** a real PostgreSQL container via Testcontainers — no database mocks.
 - **Coverage gate:** enforced by Vitest (last run: 97.9% statements, 90.4% branches, 98.7% functions, 98.8% lines).
 
-CI (GitHub Actions) runs format check, lint, typecheck and coverage on every push.
+CI (GitHub Actions) runs on every push:
+
+```
+npm ci → format:check → lint → typecheck → test:coverage
+```
 
 ---
 
