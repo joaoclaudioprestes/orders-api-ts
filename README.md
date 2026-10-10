@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/typescript-6.0-blue)
 ![Node](https://img.shields.io/badge/node-22%2B-339933)
 ![npm](https://img.shields.io/badge/npm-package%20manager-CB3837)
-![Tests](https://img.shields.io/badge/tests-45%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-64%20passed-brightgreen)
 [![CI](https://github.com/joaoclaudioprestes/orders-api-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/joaoclaudioprestes/orders-api-ts/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -53,13 +53,13 @@ src/
 ├── orders/
 │   ├── schema.ts           # Zod schemas + statuses
 │   ├── routes.ts           # create · list · get · pay · ship · cancel
-│   ├── service.ts          # state machine + stock rules
-│   ├── repository.ts       # repository / transactor interface
+│   ├── service.ts          # state machine + stock rules, Transactor / TxRepos
+│   ├── repository.ts       # repository interface
 │   ├── postgres-repository.ts
 │   └── memory-repository.ts
 ├── test/
 │   └── global-setup.ts     # starts the Postgres container
-└── *.test.ts               # app, env and Postgres integration tests
+└── *.test.ts               # app, env and Postgres integration tests (service tests live beside each service)
 ```
 
 ### Order lifecycle
@@ -94,11 +94,13 @@ stateDiagram-v2
 | `400`  | invalid body or params (Zod)                              | `{"message":"Validation error","issues":[…]}` |
 | `404`  | product or order not found                                | `{"message":"Order <id> not found"}`          |
 | `409`  | invalid transition, insufficient stock, or product in use | `{"message":"Cannot go from paid to paid"}`   |
+| `503`  | `GET /health` when the database ping fails                | `{"status":"unavailable"}`                    |
 | `500`  | unexpected error (logged server-side)                     | `{"message":"Internal server error"}`         |
 
 ### Known limitations
 
 - No authentication or pagination — out of scope for this project.
+- On `SIGTERM`/`SIGINT` the server stops accepting requests, drains in-flight ones and closes the database pool.
 
 ---
 
@@ -174,11 +176,11 @@ npm ci
 
 ### Tests
 
-45 tests in 6 files, Docker required:
+64 tests in 5 files, Docker required:
 
 - **Unit:** services against in-memory repositories (state machine, stock rules, validation).
 - **Integration:** a real PostgreSQL container via Testcontainers — no database mocks.
-- **Coverage gate:** enforced by Vitest (last run: 97.9% statements, 90.4% branches, 98.7% functions, 98.8% lines).
+- **Coverage gate:** enforced by Vitest (last run: 97.1% statements, 94.0% branches, 95.1% functions, 97.9% lines).
 
 CI (GitHub Actions) runs on every push:
 
