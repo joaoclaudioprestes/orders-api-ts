@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { products } from '../db/schema.js';
+import { orders, products } from '../db/schema.js';
 import type { ProductRepository } from './repository.js';
 
 export class PostgresProductRepository implements ProductRepository {
@@ -27,6 +27,16 @@ export class PostgresProductRepository implements ProductRepository {
       .where(eq(products.id, id))
       .returning();
     return row ?? null;
+  }
+  async isInUse(id: string) {
+    const [row] = await this.db
+      .select({ one: sql<number>`1` })
+      .from(orders)
+      .where(
+        sql`${orders.status} IN ('created', 'paid') AND ${orders.items} @> ${JSON.stringify([{ productId: id }])}::jsonb`,
+      )
+      .limit(1);
+    return !!row;
   }
   async delete(id: string) {
     const rows = await this.db

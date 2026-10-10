@@ -12,6 +12,12 @@ export class ProductNotFoundError extends Error {
   }
 }
 
+export class ProductInUseError extends Error {
+  constructor(id: string) {
+    super(`Product ${id} is referenced by an active order`);
+  }
+}
+
 export class ProductService {
   constructor(private readonly repo: ProductRepository) {}
 
@@ -39,6 +45,7 @@ export class ProductService {
   }
 
   async remove(id: string) {
+    if (await this.repo.isInUse(id)) throw new ProductInUseError(id);
     if (!(await this.repo.delete(id))) throw new ProductNotFoundError(id);
   }
 }

@@ -140,6 +140,58 @@ describe('orders over HTTP → postgres', () => {
   });
 });
 
+describe('product ↔ order integrity', () => {
+  const setup = async () => {
+    const app = await build();
+    const { id: productId } = (
+      await app.inject({ method: 'POST', url: '/products', payload: keyboard })
+    ).json();
+    const post = (url: string, payload?: object) =>
+      app.inject({ method: 'POST', url, payload });
+    const order = async () =>
+      (await post('/orders', { items: [{ productId, quantity: 1 }] })).json()
+        .id;
+    const del = () =>
+      app.inject({ method: 'DELETE', url: `/products/${productId}` });
+    return { post, order, del };
+  };
+
+  it('blocks delete with a paid order, which stays cancelable', async () => {
+    const { post, order, del } = await setup();
+    const id = await order();
+    await post(`/orders/${id}/pay`);
+    expect((await del()).statusCode).toBe(409);
+    expect((await post(`/orders/${id}/cancel`)).json().status).toBe(
+      'cancelled',
+    );
+  });
+
+  it('allows delete with only shipped/cancelled orders', async () => {
+    const { post, order, del } = await setup();
+    const shipped = await order();
+    await post(`/orders/${shipped}/pay`);
+    await post(`/orders/${shipped}/ship`);
+    await post(`/orders/${await order()}/cancel`);
+    expect((await del()).statusCode).toBe(204);
+  });
+
+  it('db rejects negative stock, non-positive price, bad status', async () => {
+    await expect(
+      db.insert(products).values({ name: 'x', price: 1, stock: -1 }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(products).values({ name: 'x', price: 0, stock: 1 }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(orders).values({
+        status: 'bogus' as 'paid',
+        items: [],
+        total: 1,
+      }),
+    ).rejects.toThrow();
+  });
+});
+
 describe('postgresTransactor', () => {
   it('rolls back order insert and stock update together on failure', async () => {
     const productRepo = new PostgresProductRepository(db);

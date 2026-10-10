@@ -31,6 +31,10 @@ export class InMemoryProductRepository implements ProductRepository {
     this.items.set(id, updated);
     return updated;
   }
+  // no orders here; the service rule is covered via integration tests
+  async isInUse() {
+    return false;
+  }
   async delete(id: string) {
     return this.items.delete(id);
   }
