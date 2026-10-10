@@ -93,6 +93,7 @@ stateDiagram-v2
 | `400`  | invalid body or params (Zod)                             | `{"message":"Validation error","issues":[…]}` |
 | `404`  | product or order not found                               | `{"message":"Order <id> not found"}`          |
 | `409`  | invalid status transition or insufficient stock on `pay` | `{"message":"Cannot go from paid to paid"}`   |
+| `500`  | unexpected error (logged server-side)                    | `{"message":"Internal server error"}`         |
 
 ### Known limitations
 

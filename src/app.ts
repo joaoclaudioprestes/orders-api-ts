@@ -1,6 +1,6 @@
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import Fastify from 'fastify';
+import Fastify, { type FastifyError } from 'fastify';
 import {
   jsonSchemaTransform,
   serializerCompiler,
@@ -20,15 +20,18 @@ import {
   type ProductService,
 } from './products/service.js';
 
-export async function buildApp(deps: {
-  products: ProductService;
-  orders: OrderService;
-}) {
-  const app = Fastify();
+export async function buildApp(
+  deps: {
+    products: ProductService;
+    orders: OrderService;
+  },
+  logger = false,
+) {
+  const app = Fastify({ logger });
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err: FastifyError, req, reply) => {
     if (
       err instanceof InvalidTransitionError ||
       err instanceof InsufficientStockError
@@ -43,7 +46,10 @@ export async function buildApp(deps: {
       return reply
         .code(400)
         .send({ message: 'Validation error', issues: err.validation });
-    return reply.send(err);
+    if (err.statusCode && err.statusCode < 500)
+      return reply.code(err.statusCode).send({ message: err.message });
+    req.log.error({ err });
+    return reply.code(500).send({ message: 'Internal server error' });
   });
 
   await app.register(swagger, {

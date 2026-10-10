@@ -11,8 +11,11 @@ const env = parseEnv(process.env);
 const db = drizzle(env.DATABASE_URL);
 await migrate(db, { migrationsFolder: './drizzle' });
 const productRepo = new PostgresProductRepository(db);
-const app = await buildApp({
-  products: new ProductService(productRepo),
-  orders: new OrderService(postgresTransactor(db)),
-});
+const app = await buildApp(
+  {
+    products: new ProductService(productRepo),
+    orders: new OrderService(postgresTransactor(db)),
+  },
+  true,
+);
 await app.listen({ port: env.PORT, host: '0.0.0.0' });
