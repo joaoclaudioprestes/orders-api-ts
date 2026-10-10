@@ -15,6 +15,13 @@
       "when": 1791572395774,
       "tag": "0001_useful_ozymandias",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791591053962,
+      "tag": "0002_product_order_integrity",
+      "breakpoints": true
     }
   ]
 }

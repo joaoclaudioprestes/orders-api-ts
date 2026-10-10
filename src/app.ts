@@ -16,6 +16,7 @@ import {
 } from './orders/service.js';
 import { productRoutes } from './products/routes.js';
 import {
+  ProductInUseError,
   ProductNotFoundError,
   type ProductService,
 } from './products/service.js';
@@ -34,7 +35,8 @@ export async function buildApp(
   app.setErrorHandler((err: FastifyError, req, reply) => {
     if (
       err instanceof InvalidTransitionError ||
-      err instanceof InsufficientStockError
+      err instanceof InsufficientStockError ||
+      err instanceof ProductInUseError
     )
       return reply.code(409).send({ message: err.message });
     if (

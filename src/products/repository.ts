@@ -6,5 +6,7 @@ export interface ProductRepository {
   findById(id: string, forUpdate?: boolean): Promise<Product | null>;
   list(): Promise<Product[]>;
   update(id: string, data: UpdateProduct): Promise<Product | null>;
+  // true when a created/paid order references the product
+  isInUse(id: string): Promise<boolean>;
   delete(id: string): Promise<boolean>;
 }

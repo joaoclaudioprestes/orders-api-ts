@@ -78,6 +78,7 @@ stateDiagram-v2
 - Any other transition returns `409 Conflict`.
 - Prices are snapshotted into the order on creation (`unitPrice`), so later product price changes do not alter existing orders.
 - Stock is taken on payment, not on creation; paying without enough stock returns `409`.
+- `DELETE /products/:id` returns `409` while a `created` or `paid` order references the product; products only in `shipped`/`cancelled` orders can be deleted.
 - Each order operation runs inside a single database transaction: the status change and the stock update commit or roll back together.
 
 ### Design decisions
@@ -88,12 +89,12 @@ stateDiagram-v2
 
 ### Error responses
 
-| Status | When                                                     | Body                                          |
-| ------ | -------------------------------------------------------- | --------------------------------------------- |
-| `400`  | invalid body or params (Zod)                             | `{"message":"Validation error","issues":[…]}` |
-| `404`  | product or order not found                               | `{"message":"Order <id> not found"}`          |
-| `409`  | invalid status transition or insufficient stock on `pay` | `{"message":"Cannot go from paid to paid"}`   |
-| `500`  | unexpected error (logged server-side)                    | `{"message":"Internal server error"}`         |
+| Status | When                                                      | Body                                          |
+| ------ | --------------------------------------------------------- | --------------------------------------------- |
+| `400`  | invalid body or params (Zod)                              | `{"message":"Validation error","issues":[…]}` |
+| `404`  | product or order not found                                | `{"message":"Order <id> not found"}`          |
+| `409`  | invalid transition, insufficient stock, or product in use | `{"message":"Cannot go from paid to paid"}`   |
+| `500`  | unexpected error (logged server-side)                     | `{"message":"Internal server error"}`         |
 
 ### Known limitations
 
