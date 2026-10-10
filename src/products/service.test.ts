@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  InMemoryOrderRepository,
+  inMemoryTransactor,
+} from '../orders/memory-repository.js';
 import { InMemoryProductRepository } from './memory-repository.js';
 import { ProductNotFoundError, ProductService } from './service.js';
 
@@ -8,7 +12,11 @@ describe('ProductService', () => {
   let service: ProductService;
 
   beforeEach(() => {
-    service = new ProductService(new InMemoryProductRepository());
+    const products = new InMemoryProductRepository();
+    service = new ProductService(
+      products,
+      inMemoryTransactor(new InMemoryOrderRepository(), products),
+    );
   });
 
   it('creates a product', async () => {
