@@ -161,3 +161,35 @@ describe('input bounds', () => {
     expect(res.statusCode).toBe(400);
   });
 });
+
+describe('error handling', () => {
+  it('hides unexpected error details behind a generic 500', async () => {
+    const products = new InMemoryProductRepository();
+    const productService = new ProductService(products);
+    productService.list = () => {
+      throw new Error('Failed query: select secret');
+    };
+    const app = await buildApp({
+      products: productService,
+      orders: new OrderService(
+        inMemoryTransactor(new InMemoryOrderRepository(), products),
+      ),
+    });
+    const res = await app.inject({ url: '/products' });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ message: 'Internal server error' });
+    expect(res.body).not.toContain('secret');
+  });
+
+  it('keeps 400 for malformed JSON', async () => {
+    const res = await (
+      await build()
+    ).inject({
+      method: 'POST',
+      url: '/products',
+      headers: { 'content-type': 'application/json' },
+      payload: '{bad',
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
