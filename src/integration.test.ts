@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { orders, products } from './db/schema.js';
@@ -14,7 +15,7 @@ const db = drizzle(process.env.TEST_DATABASE_URL!);
 const transactor = postgresTransactor(db);
 const build = () =>
   buildApp({
-    products: new ProductService(new PostgresProductRepository(db)),
+    products: new ProductService(new PostgresProductRepository(db), transactor),
     orders: new OrderService(transactor),
   });
 
@@ -292,5 +293,41 @@ describe('concurrent transitions', () => {
     expect(
       (await app.inject({ url: `/products/${productId}` })).json().stock,
     ).toBe(10);
+  });
+
+  it('delete racing order creation never leaves an active order on a missing product', async () => {
+    const app = await build();
+    const { id: productId } = (
+      await app.inject({ method: 'POST', url: '/products', payload: keyboard })
+    ).json();
+    const results = await Promise.all([
+      ...Array.from({ length: 10 }, () =>
+        app.inject({
+          method: 'POST',
+          url: '/orders',
+          payload: { items: [{ productId, quantity: 1 }] },
+        }),
+      ),
+      app.inject({ method: 'DELETE', url: `/products/${productId}` }),
+    ]);
+    const del = results[10]!.statusCode;
+    expect([204, 409]).toContain(del);
+    const n = (
+      (
+        await db.execute(
+          sql`select count(*)::int as n from orders where status = 'created'`,
+        )
+      ).rows[0] as { n: number }
+    ).n;
+    const created = results.slice(0, 10).filter((r) => r.statusCode === 201);
+    expect(n).toBe(created.length);
+    if (del === 204) {
+      // delete won: nothing may reference the product
+      expect(n).toBe(0);
+    } else {
+      expect(
+        (await app.inject({ url: `/products/${productId}` })).statusCode,
+      ).toBe(200);
+    }
   });
 });

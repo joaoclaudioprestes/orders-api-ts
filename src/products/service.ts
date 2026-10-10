@@ -1,3 +1,4 @@
+import type { Transactor } from '../orders/service.js';
 import type { ProductRepository } from './repository.js';
 import {
   createProductSchema,
@@ -19,7 +20,10 @@ export class ProductInUseError extends Error {
 }
 
 export class ProductService {
-  constructor(private readonly repo: ProductRepository) {}
+  constructor(
+    private readonly repo: ProductRepository,
+    private readonly tx: Transactor,
+  ) {}
 
   async create(input: CreateProduct) {
     return this.repo.create(createProductSchema.parse(input));
@@ -45,7 +49,12 @@ export class ProductService {
   }
 
   async remove(id: string) {
-    if (await this.repo.isInUse(id)) throw new ProductInUseError(id);
-    if (!(await this.repo.delete(id))) throw new ProductNotFoundError(id);
+    // row lock serializes with order creation, which locks the same rows
+    await this.tx(async ({ products }) => {
+      if (!(await products.findById(id, true)))
+        throw new ProductNotFoundError(id);
+      if (await products.isInUse(id)) throw new ProductInUseError(id);
+      await products.delete(id);
+    });
   }
 }

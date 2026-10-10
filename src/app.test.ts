@@ -11,7 +11,10 @@ import { ProductService } from './products/service.js';
 const build = () => {
   const products = new InMemoryProductRepository();
   return buildApp({
-    products: new ProductService(products),
+    products: new ProductService(
+      products,
+      inMemoryTransactor(new InMemoryOrderRepository(), products),
+    ),
     orders: new OrderService(
       inMemoryTransactor(new InMemoryOrderRepository(), products),
     ),
@@ -31,7 +34,10 @@ describe('health with database', () => {
   const withPing = async (ping: () => Promise<unknown>) => {
     const products = new InMemoryProductRepository();
     return buildApp({
-      products: new ProductService(products),
+      products: new ProductService(
+        products,
+        inMemoryTransactor(new InMemoryOrderRepository(), products),
+      ),
       orders: new OrderService(
         inMemoryTransactor(new InMemoryOrderRepository(), products),
       ),
@@ -192,7 +198,10 @@ describe('input bounds', () => {
 describe('error handling', () => {
   it('hides unexpected error details behind a generic 500', async () => {
     const products = new InMemoryProductRepository();
-    const productService = new ProductService(products);
+    const productService = new ProductService(
+      products,
+      inMemoryTransactor(new InMemoryOrderRepository(), products),
+    );
     productService.list = () => {
       throw new Error('Failed query: select secret');
     };

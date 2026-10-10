@@ -58,6 +58,11 @@ export class OrderService {
     products: ProductRepository,
     items: CreateOrder['items'],
   ) {
+    // lock in id order (deadlock-free) so a concurrent product delete waits for us
+    for (const { productId } of [...items].sort((a, b) =>
+      a.productId.localeCompare(b.productId),
+    ))
+      await products.findById(productId, true);
     const priced = [];
     for (const { productId, quantity } of items) {
       const product = await products.findById(productId);

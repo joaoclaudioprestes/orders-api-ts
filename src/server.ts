@@ -14,7 +14,7 @@ await migrate(db, { migrationsFolder: './drizzle' });
 const productRepo = new PostgresProductRepository(db);
 const app = await buildApp(
   {
-    products: new ProductService(productRepo),
+    products: new ProductService(productRepo, postgresTransactor(db)),
     orders: new OrderService(postgresTransactor(db)),
     ping: () => db.execute(sql`select 1`),
   },
