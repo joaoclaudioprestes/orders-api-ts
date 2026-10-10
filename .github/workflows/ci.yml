@@ -19,3 +19,4 @@ jobs:
         env:
           # ryuk image only lives on Docker Hub (rate limited); runner is ephemeral
           TESTCONTAINERS_RYUK_DISABLED: 'true'
+      - run: docker build -t orders-api-ts .
