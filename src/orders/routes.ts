@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createOrderSchema, orderSchema } from './schema.js';
 import type { OrderService } from './service.js';
 
-const params = z.object({ id: z.string() });
+const params = z.object({ id: z.uuid() });
 const tags = ['orders'];
 
 export const orderRoutes =

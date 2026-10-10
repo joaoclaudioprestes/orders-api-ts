@@ -109,3 +109,55 @@ describe('order routes', () => {
     ).toBe(404);
   });
 });
+
+describe('input bounds', () => {
+  const bad = 'abc';
+  it.each([
+    ['GET', '/products/'],
+    ['PATCH', '/products/'],
+    ['DELETE', '/products/'],
+    ['GET', '/orders/'],
+    ['POST', '/orders/pay/'],
+  ])('rejects non-uuid id on %s %s', async (method, url) => {
+    const app = await build();
+    const path = url.endsWith('pay/') ? `/orders/${bad}/pay` : `${url}${bad}`;
+    const res = await app.inject({
+      method: method as 'GET',
+      url: path,
+      payload: method === 'PATCH' ? {} : undefined,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it.each(['ship', 'cancel'])('rejects non-uuid id on order %s', async (a) => {
+    const res = await (
+      await build()
+    ).inject({ method: 'POST', url: `/orders/abc/${a}` });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it.each([{ price: 10.555 }, { price: 1e11 }, { stock: 3e9 }])(
+    'rejects out-of-bounds product %o',
+    async (override) => {
+      const res = await (
+        await build()
+      ).inject({
+        method: 'POST',
+        url: '/products',
+        payload: { ...valid, ...override },
+      });
+      expect(res.statusCode).toBe(400);
+    },
+  );
+
+  it('rejects order quantity above integer max', async () => {
+    const res = await (
+      await build()
+    ).inject({
+      method: 'POST',
+      url: '/orders',
+      payload: { items: [{ productId: crypto.randomUUID(), quantity: 3e9 }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

@@ -7,7 +7,7 @@ import {
 } from './schema.js';
 import type { ProductService } from './service.js';
 
-const params = z.object({ id: z.string() });
+const params = z.object({ id: z.uuid() });
 const tags = ['products'];
 
 export const productRoutes =

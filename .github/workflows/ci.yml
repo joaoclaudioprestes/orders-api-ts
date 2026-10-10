@@ -16,3 +16,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:coverage
+        env:
+          # ryuk image only lives on Docker Hub (rate limited); runner is ephemeral
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
