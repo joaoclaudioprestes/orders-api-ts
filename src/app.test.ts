@@ -27,6 +27,33 @@ describe('health', () => {
   });
 });
 
+describe('health with database', () => {
+  const withPing = async (ping: () => Promise<unknown>) => {
+    const products = new InMemoryProductRepository();
+    return buildApp({
+      products: new ProductService(products),
+      orders: new OrderService(
+        inMemoryTransactor(new InMemoryOrderRepository(), products),
+      ),
+      ping,
+    });
+  };
+
+  it('returns 200 when database answers', async () => {
+    const app = await withPing(async () => 1);
+    expect((await app.inject({ url: '/health' })).statusCode).toBe(200);
+  });
+
+  it('returns 503 when database fails', async () => {
+    const app = await withPing(async () => {
+      throw new Error('down');
+    });
+    const res = await app.inject({ url: '/health' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({ status: 'unavailable' });
+  });
+});
+
 describe('product routes', () => {
   it('runs full CRUD', async () => {
     const app = await build();

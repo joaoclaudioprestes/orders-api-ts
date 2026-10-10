@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { buildApp } from './app.js';
@@ -15,7 +16,17 @@ const app = await buildApp(
   {
     products: new ProductService(productRepo),
     orders: new OrderService(postgresTransactor(db)),
+    ping: () => db.execute(sql`select 1`),
   },
   true,
 );
+db.$client.on('error', (err) => app.log.error({ err }));
 await app.listen({ port: env.PORT, host: '0.0.0.0' });
+
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, async () => {
+    await app.close();
+    await db.$client.end();
+    process.exit(0);
+  });
+}

@@ -25,6 +25,7 @@ export async function buildApp(
   deps: {
     products: ProductService;
     orders: OrderService;
+    ping?: () => Promise<unknown>;
   },
   logger = false,
 ) {
@@ -59,7 +60,14 @@ export async function buildApp(
     transform: jsonSchemaTransform,
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
-  app.get('/health', () => ({ status: 'ok' }));
+  app.get('/health', async (_req, reply) => {
+    try {
+      await deps.ping?.();
+      return { status: 'ok' };
+    } catch {
+      return reply.code(503).send({ status: 'unavailable' });
+    }
+  });
   await app.register(productRoutes(deps.products));
   await app.register(orderRoutes(deps.orders));
   return app;
