@@ -1,5 +1,6 @@
 import { ProductNotFoundError } from '../products/service.js';
 import type { ProductRepository } from '../products/repository.js';
+import { maxInt, maxPrice } from '../products/schema.js';
 import type { OrderRepository } from './repository.js';
 import {
   createOrderSchema,
@@ -25,6 +26,28 @@ export class InsufficientStockError extends Error {
     super(`Insufficient stock for product ${productId}`);
   }
 }
+
+export class OrderTotalTooLargeError extends Error {
+  constructor() {
+    super(`Order total exceeds ${maxPrice}`);
+  }
+}
+
+export class StockOverflowError extends Error {
+  constructor(productId: string) {
+    super(`Stock for product ${productId} would exceed ${maxInt}`);
+  }
+}
+
+// integer cents avoid float drift; the total is converted to reais only at the end
+export const totalOf = (items: { unitPrice: number; quantity: number }[]) => {
+  const cents = items.reduce(
+    (sum, i) => sum + Math.round(i.unitPrice * 100) * i.quantity,
+    0,
+  );
+  if (cents > Math.round(maxPrice * 100)) throw new OrderTotalTooLargeError();
+  return cents / 100;
+};
 
 const transitions: Record<OrderStatus, OrderStatus[]> = {
   created: ['paid', 'cancelled'],
@@ -69,11 +92,10 @@ export class OrderService {
       if (!product) throw new ProductNotFoundError(productId);
       priced.push({ productId, quantity, unitPrice: product.price });
     }
-    const total = priced.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     return orders.create({
       status: 'created',
       items: priced,
-      total: Math.round(total * 100) / 100,
+      total: totalOf(priced),
     });
   }
 
@@ -139,6 +161,7 @@ export class OrderService {
       if (!product) throw new ProductNotFoundError(productId);
       const stock = (stocks.get(productId) ?? product.stock) + sign * quantity;
       if (stock < 0) throw new InsufficientStockError(productId);
+      if (stock > maxInt) throw new StockOverflowError(productId);
       stocks.set(productId, stock);
     }
     for (const [productId, stock] of stocks)

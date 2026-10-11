@@ -10,6 +10,8 @@ import {
 import { orderRoutes } from './orders/routes.js';
 import {
   InsufficientStockError,
+  OrderTotalTooLargeError,
+  StockOverflowError,
   InvalidTransitionError,
   OrderNotFoundError,
   type OrderService,
@@ -37,6 +39,7 @@ export async function buildApp(
     if (
       err instanceof InvalidTransitionError ||
       err instanceof InsufficientStockError ||
+      err instanceof StockOverflowError ||
       err instanceof ProductInUseError
     )
       return reply.code(409).send({ message: err.message });
@@ -45,6 +48,8 @@ export async function buildApp(
       err instanceof OrderNotFoundError
     )
       return reply.code(404).send({ message: err.message });
+    if (err instanceof OrderTotalTooLargeError)
+      return reply.code(422).send({ message: err.message });
     if (hasZodFastifySchemaValidationErrors(err))
       return reply
         .code(400)

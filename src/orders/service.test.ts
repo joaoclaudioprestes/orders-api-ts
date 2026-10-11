@@ -10,6 +10,9 @@ import {
   InvalidTransitionError,
   OrderNotFoundError,
   OrderService,
+  OrderTotalTooLargeError,
+  StockOverflowError,
+  totalOf,
 } from './service.js';
 
 describe('OrderService', () => {
@@ -125,5 +128,25 @@ describe('OrderService', () => {
     await expect(service.pay(id)).rejects.toThrow('db down');
     expect(await stock()).toBe(5);
     expect((await service.get(id)).status).toBe('created');
+  });
+
+  it('totals in cents without float drift', () => {
+    expect(totalOf([{ unitPrice: 0.1, quantity: 3 }])).toBe(0.3);
+  });
+
+  it('rejects totals above the price limit and stores nothing', async () => {
+    await products.update(productId, { price: 10, stock: 5 });
+    await expect(newOrder(2147483647)).rejects.toBeInstanceOf(
+      OrderTotalTooLargeError,
+    );
+    expect(await orders.list()).toHaveLength(0);
+  });
+
+  it('refuses to give back stock past the integer limit', async () => {
+    const { id } = await service.pay((await newOrder()).id);
+    await products.update(productId, { stock: 2147483647 });
+    await expect(service.cancel(id)).rejects.toBeInstanceOf(StockOverflowError);
+    expect((await service.get(id)).status).toBe('paid');
+    expect(await stock()).toBe(2147483647);
   });
 });
