@@ -116,6 +116,35 @@ describe('orders over HTTP → postgres', () => {
     expect(await stock()).toBe(10);
   });
 
+  it('422 on overflowing total, 409 on overflowing stock return', async () => {
+    const { app, productId, post, stock } = await setup();
+    await app.inject({
+      method: 'PATCH',
+      url: `/products/${productId}`,
+      payload: { price: 10, stock: 5 },
+    });
+    const big = await post('/orders', {
+      items: [{ productId, quantity: 2147483647 }],
+    });
+    expect(big.statusCode).toBe(422);
+    expect((await app.inject({ url: '/orders' })).json()).toHaveLength(0);
+
+    const { id } = (
+      await post('/orders', { items: [{ productId, quantity: 2 }] })
+    ).json();
+    await post(`/orders/${id}/pay`);
+    await app.inject({
+      method: 'PATCH',
+      url: `/products/${productId}`,
+      payload: { stock: 2147483647 },
+    });
+    expect((await post(`/orders/${id}/cancel`)).statusCode).toBe(409);
+    expect(await stock()).toBe(2147483647);
+    expect((await app.inject({ url: `/orders/${id}` })).json().status).toBe(
+      'paid',
+    );
+  });
+
   it('maps errors: 409 invalid transition / no stock, 404, 400', async () => {
     const { app, productId, post, stock } = await setup();
     const { id } = (
